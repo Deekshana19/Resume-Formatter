@@ -6,6 +6,7 @@ import os
 import re
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from fastapi.responses import HTMLResponse
 
 
 app = FastAPI()
@@ -103,3 +104,72 @@ async def proxy_upload(file: UploadFile = File(...)):
     except ValueError:
         # If response is a file (not JSON), stream it
         return StreamingResponse(BytesIO(response.content), media_type="application/octet-stream")
+
+
+from fastapi.responses import HTMLResponse
+
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    return """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <title>Resume Formatter Upload</title>
+      <style>
+        body { font-family: Arial; background: #f4f4f4; padding: 40px; text-align: center; }
+        input[type="file"], button { margin-top: 20px; padding: 10px; }
+        #result { margin-top: 30px; }
+      </style>
+    </head>
+    <body>
+
+      <h1>Upload Resume (PDF)</h1>
+      <form id="uploadForm">
+        <input type="file" name="file" id="fileInput" accept="application/pdf" required />
+        <br>
+        <button type="submit">Upload & Format</button>
+      </form>
+
+      <div id="result"></div>
+
+      <script>
+        const webhookUrl = "/upload-resume-proxy";
+
+        document.getElementById("uploadForm").addEventListener("submit", async function(e) {
+          e.preventDefault();
+
+          const file = document.getElementById("fileInput").files[0];
+          const resultDiv = document.getElementById("result");
+          if (!file) return (resultDiv.innerText = "Please select a file.");
+
+          const formData = new FormData();
+          formData.append("file", file);
+          resultDiv.innerHTML = "Uploading and formatting resume...";
+
+          try {
+            const res = await fetch(webhookUrl, {
+              method: "POST",
+              body: formData,
+            });
+
+            const contentType = res.headers.get("content-type") || "";
+            if (!res.ok) throw new Error(`Server error: ${res.status}`);
+
+            if (contentType.includes("application/json")) {
+              const json = await res.json();
+              resultDiv.innerHTML = `<p>${json.message}</p><a href="${json.driveLink}" target="_blank"><button>Open in Google Drive</button></a>`;
+            } else {
+              const blob = await res.blob();
+              const downloadUrl = URL.createObjectURL(blob);
+              resultDiv.innerHTML = `<a href="${downloadUrl}" download="Formatted_Resume.docx"><button>Download Resume</button></a>`;
+            }
+
+          } catch (err) {
+            resultDiv.innerText = "❌ Error: " + err.message;
+          }
+        });
+      </script>
+    </body>
+    </html>
+    """
