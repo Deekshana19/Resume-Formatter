@@ -4,3 +4,5 @@ docxtpl
 python-multipart
 PyMuPDF
 python-magic-bin
+python-magic
+libmagic
