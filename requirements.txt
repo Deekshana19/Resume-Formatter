@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+docxtpl
+python-multipart
+PyMuPDF
+python-magic-bin
